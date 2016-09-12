@@ -689,6 +689,14 @@ CGFloat const SPMultitaskingCompactOneThirdWidth = 320.0f;
     }
 }
 
+// The activity sheet breaks when transitioning from a popover to a modal-style
+// presentation, so we'll tell it not to change its presentation if the
+// view's size class changes.
+- (UIModalPresentationStyle)adaptivePresentationStyleForPresentationController:(UIPresentationController *)controller
+{
+    return UIModalPresentationNone;
+}
+
 #pragma mark - SPInteractivePushViewControllerProvider (Markdown Preview)
 
 - (UIViewController *)nextViewControllerForInteractivePush
@@ -1418,6 +1426,10 @@ CGFloat const SPMultitaskingCompactOneThirdWidth = 320.0f;
         popoverVC.popoverPresentationController.sourceRect = ((UIView *)sender).bounds;
         popoverVC.popoverPresentationController.permittedArrowDirections = UIPopoverArrowDirectionAny;
         popoverVC.popoverPresentationController.delegate = self;
+
+        UIColor *actionSheetColor = [[self.theme colorForKey:@"actionSheetBackgroundColor"] colorWithAlphaComponent:0.97];
+        popoverVC.popoverPresentationController.backgroundColor = actionSheetColor;
+
         [self presentViewController:popoverVC animated:YES completion:nil];
     } else {
         noteActionSheet = [SPActionSheet showActionSheetInView:self.navigationController.view
@@ -1430,10 +1442,9 @@ CGFloat const SPMultitaskingCompactOneThirdWidth = 320.0f;
 }
 
 - (void)dismissActivityView {
-    
-    // Popover Scenario:
-    [noteActionPopover dismissPopoverAnimated:NO];
-    noteActionPopover = nil;
+    if (self.presentedViewController) {
+        [self dismissViewControllerAnimated:YES completion:nil];
+    }
 
     // ActionSheet Scenario
     [noteActionSheet dismiss];
@@ -1660,15 +1671,17 @@ CGFloat const SPMultitaskingCompactOneThirdWidth = 320.0f;
     
     [SPTracker trackEditorNoteContentShared];
 	   
-    UIActivityViewController *acv = [[UIActivityViewController alloc] initWithActivityItems:@[_currentNote.content]
+    UISimpleTextPrintFormatter *print = [[UISimpleTextPrintFormatter alloc] initWithText:_currentNote.content];
+
+    UIActivityViewController *acv = [[UIActivityViewController alloc] initWithActivityItems:@[_currentNote.content, print]
                                                                       applicationActivities:nil];
     
     if ([UIDevice isPad]) {
-        noteActionPopover = [[UIPopoverController alloc] initWithContentViewController:acv];
-        [noteActionPopover presentPopoverFromRect:[self presentationRectForActionButton]
-                                           inView:self.view
-                         permittedArrowDirections:UIPopoverArrowDirectionAny
-                                         animated:YES];
+        acv.modalPresentationStyle = UIModalPresentationPopover;
+        acv.popoverPresentationController.permittedArrowDirections = UIPopoverArrowDirectionAny;
+        acv.popoverPresentationController.sourceRect = [self presentationRectForActionButton];
+        acv.popoverPresentationController.sourceView = self.view;
+        [self presentViewController:acv animated:YES completion:nil];
     } else {
         [self.navigationController presentViewController:acv animated:YES completion:nil];
     }
@@ -1690,13 +1703,13 @@ CGFloat const SPMultitaskingCompactOneThirdWidth = 320.0f;
     
     UIActivityViewController *acv = [[UIActivityViewController alloc] initWithActivityItems:@[publishURL]
                                                                       applicationActivities:@[safariActivity]];
-    
+
     if ([UIDevice isPad]) {
-        noteActionPopover = [[UIPopoverController alloc] initWithContentViewController:acv];
-        [noteActionPopover presentPopoverFromRect:[self presentationRectForActionButton]
-                                           inView:self.view
-                         permittedArrowDirections:UIPopoverArrowDirectionAny
-                                         animated:YES];
+        acv.modalPresentationStyle = UIModalPresentationPopover;
+        acv.popoverPresentationController.permittedArrowDirections = UIPopoverArrowDirectionAny;
+        acv.popoverPresentationController.sourceRect = [self presentationRectForActionButton];
+        acv.popoverPresentationController.sourceView = self.view;
+        [self presentViewController:acv animated:YES completion:nil];
     } else {
         [self.navigationController presentViewController:acv animated:YES completion:nil];
     }
